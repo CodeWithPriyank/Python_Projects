@@ -1,0 +1,39 @@
+model {
+  file: "model.sdf"
+}
+name: "PureCadence_2_Color_HiRskRedNghtlfeSlvrBlckWht_Size_70"
+description: "PureCadence 2, Color: HiRskRed/Nghtlf/eSlvr/Blck/Wht, Size: 7.0\nWith lean construction and a responsive fit, the PureCadence 2 rethinks how support technology is engineered. Features like the internal PDRB help prevent overpronation without added parts and the wide Nav Band holds your foot like an endless hug. Add fresh looks and some street cred, and this featherweight friend will run footloose and fancy-free with you. Just like our core line, we hold PureProject to the industry\'s highest weartest and durability standards. Because of their lightweight construction and fewer materials, runners should generally expect shoes from the PureProject line to last approximately 250-300 miles. > See the Women\'s PureCadence 2Category: Support Weight: 9.3 oz Platform: Anatomical Last Construction: Stroebel Launch Date: December 1, 2012 Technologies &bull; BioMoGo DNA Midsole &bull; IDEAL Heel &bull; Toe Flex &bull; Nav Band &bull; Anatomical Last"
+version: 1
+authors {
+  name: "Google"
+  email: "scanned-objects@google.com"
+}
+legal {
+  copyright: "Copyright 2020 Google LLC."
+  license: "Creative Commons Attribution 4.0 International"
+}
+annotations {
+  key: "brand"
+  value: "Brooks Running"
+}
+annotations {
+  key: "gtin"
+  value: "00883439716984"
+}
+annotations {
+  key: "mpn"
+  value: "1101401d340.070"
+}
+annotations {
+  key: "sku"
+  value: "1101401D340.070"
+}
+compatibilities {
+  name: "Gazebo"
+  version {
+    major: 11
+  }
+}
+categories {
+  first: "Shoe"
+}

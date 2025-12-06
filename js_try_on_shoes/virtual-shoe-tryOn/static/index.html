@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Shoe Try-On</title>
+    <style>
+        body { background: #222; color: #fff; font-family: sans-serif; text-align: center; }
+        #video-stream { width: 640px; height: 480px; background: #000; }
+        #three-canvas { width: 640px; height: 480px; display: block; margin: 0 auto; }
+    </style>
+</head>
+<body>
+    <h1>Virtual Shoe Try-On</h1>
+    <video id="video-stream" autoplay playsinline></video>
+    <canvas id="three-canvas"></canvas>
+    <div id="status"></div>
+    <!-- <script src="three.min.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/101/three.min.js"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.175.0/three.tsl.js" integrity="sha512-+Eq1goZ8yp6bwAPEPY7LSIlLKGf2qMAm1XrME6YzLiM295oqMSlbL0Cbz+uvxGVzYvk+NGrKJldHF975xWP8lQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/three-gltf-loader@1.111.0/index.min.js"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/OBJLoader.js"></script> -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script type="module" src="./main.js"></script>
+</body>
+</html> 

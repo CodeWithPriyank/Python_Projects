@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Model on Feet Detection with WebGL Fix</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.167.1/build/three.min.js"></script>
+  <style>
+    body { margin: 0; display: flex; flex-direction: column; align-items: center; font-family: Arial, sans-serif; }
+    #output_canvas { position: absolute; top: 80px; border: 1px solid black; }
+    #video { display: none; }
+    h1 { margin: 10px 0; }
+    #error_message { color: red; font-size: 16px; max-width: 640px; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>3D Model on Detected Feet</h1>
+  <div id="error_message"></div>
+  <video id="video" width="320" height="240" autoplay></video>
+  <canvas id="output_canvas" width="320" height="240"></canvas>
+
+  <script>
+    const videoElement = document.getElementById('video');
+    const canvasElement = document.getElementById('output_canvas');
+    const errorMessage = document.getElementById('error_message');
+    const canvasCtx = canvasElement.getContext('2d');
+
+    // Check WebGL support
+    function checkWebGLSupport() {
+      try {
+        const canvas = document.createElement('canvas');
+        return !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'));
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // Initialize Three.js with fallback
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas: canvasElement, alpha: true });
+      renderer.setSize(canvasElement.width, canvasElement.height);
+      if (!checkWebGLSupport()) {
+        throw new Error('WebGL not supported');
+      }
+    } catch (e) {
+      console.error('WebGL initialization failed:', e);
+      errorMessage.textContent = 'WebGL not supported or failed to initialize. Try updating your browser or graphics drivers.';
+      renderer = null; // Fallback to 2D rendering
+    }
+
+    // Initialize Three.js scene if WebGL is available
+    let scene, camera, leftCube, rightCube;
+    if (renderer) {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, canvasElement.width / canvasElement.height, 0.1, 1000);
+      camera.position.z = 5;
+
+      const cubeGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+      const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
+      leftCube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+      rightCube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+      scene.add(leftCube, rightCube);
+    }
+
+    // Smoothing variables for landmark positions
+    const smoothingFactor = 0.6;
+    const smoothedPositions = {
+      left: { x: 0, y: 0, z: 0 },
+      right: { x: 0, y: 0, z: 0 }
+    };
+
+    // Initialize MediaPipe Pose
+    const pose = new Pose({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}`
+    });
+    pose.setOptions({
+      modelComplexity: 0,
+      smoothLandmarks: true,
+      enableSegmentation: false,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.7
+    });
+
+    // Process pose results
+    pose.onResults((results) => {
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+
+      if (renderer && results.poseLandmarks) {
+        leftCube.visible = false;
+        rightCube.visible = false;
+
+        const ankleLandmarks = [
+          { index: 27, label: 'Left Ankle', cube: leftCube, smoothed: smoothedPositions.left },
+          { index: 28, label: 'Right Ankle', cube: rightCube, smoothed: smoothedPositions.right }
+        ];
+
+        ankleLandmarks.forEach(({ index, label, cube, smoothed }) => {
+          const landmark = results.poseLandmarks[index];
+          if (landmark && landmark.visibility > 0.7) {
+            smoothed.x = smoothingFactor * smoothed.x + (1 - smoothingFactor) * landmark.x;
+            smoothed.y = smoothingFactor * smoothed.y + (1 - smoothingFactor) * landmark.y;
+            smoothed.z = 0;
+
+            const x = (smoothed.x - 0.5) * 8;
+            const y = -(smoothed.y - 0.5) * 8;
+            const z = smoothed.z;
+
+            cube.position.set(x, y, z);
+            cube.visible = true;
+
+            canvasCtx.fillStyle = 'yellow';
+            canvasCtx.beginPath();
+            canvasCtx.arc(smoothed.x * canvasElement.width, smoothed.y * canvasElement.height, 5, 0, 2 * Math.PI);
+            canvasCtx.fill();
+
+            console.log(`${label} detected at x: ${smoothed.x}, y: ${smoothed.y}, visibility: ${landmark.visibility}`);
+          } else {
+            console.log(`${label} not detected or low confidence: ${landmark ? landmark.visibility : 'N/A'}`);
+          }
+        });
+      } else {
+        console.log('No pose landmarks detected or WebGL unavailable');
+      }
+
+      canvasCtx.restore();
+      if (renderer) renderer.render(scene, camera);
+    });
+
+    // List available cameras for debugging
+    async function listCameras() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        if (videoDevices.length === 0) {
+          errorMessage.textContent = 'No cameras found. Please connect a webcam.';
+          console.error('No video devices found');
+          return [];
+        }
+        console.log('Available cameras:', videoDevices);
+        return videoDevices;
+      } catch (err) {
+        console.error('Error listing cameras:', err);
+        errorMessage.textContent = 'Error accessing camera devices. Please check permissions.';
+        return [];
+      }
+    }
+
+    // Try to start the camera with fallback
+    async function startCamera() {
+      const constraints = [
+        { video: { width: 320, height: 240 } },
+        { video: { width: 640, height: 480 } }
+      ];
+
+      for (const constraint of constraints) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia(constraint);
+          videoElement.srcObject = stream;
+          videoElement.play();
+          const mpCamera = new Camera(videoElement, {
+            onFrame: async () => {
+              await pose.send({ image: videoElement });
+            },
+            width: constraint.video.width,
+            height: constraint.video.height
+          });
+          mpCamera.start();
+          errorMessage.textContent = '';
+          console.log(`Camera started with resolution ${constraint.video.width}x${constraint.video.height}`);
+          return;
+        } catch (err) {
+          console.error(`Failed with resolution ${constraint.video.width}x${constraint.video.height}:`, err);
+          if (err.name === 'NotAllowedError') {
+            errorMessage.textContent = 'Camera access denied. Please allow camera permissions in your browser.';
+          } else if (err.name === 'NotFoundError') {
+            errorMessage.textContent = 'No camera found. Please connect a webcam.';
+          } else {
+            errorMessage.textContent = `Camera error: ${err.message}. Try refreshing or checking camera settings.`;
+          }
+        }
+      }
+    }
+
+    // Initialize
+    async function init() {
+      await listCameras();
+      await startCamera();
+    }
+    init();
+
+    // Animation loop for Three.js
+    function animate() {
+      requestAnimationFrame(animate);
+      if (renderer && leftCube && rightCube) {
+        leftCube.rotation.y += 0.02;
+        rightCube.rotation.y += 0.02;
+        renderer.render(scene, camera);
+      }
+    }
+    if (renderer) animate();
+  </script>
+</body>
+</html>

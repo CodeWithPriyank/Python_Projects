@@ -1,0 +1,261 @@
+{
+  "name": "Slack AI Agent with Calendar, Gmail, and Logging",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "slack-webhook",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        150,
+        300
+      ],
+      "name": "Slack Trigger",
+      "id": "slackTrigger"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "You are an AI assistant that receives a Slack message and decides which tool to use — the Calendar tool or the Gmail tool. Reply with the tool name in lowercase: 'calendar' or 'gmail'. Here is the user message: {{ $json[\"text\"] }}",
+        "hasOutputParser": false,
+        "options": {
+          "systemMessage": "You decide whether to use Calendar or Gmail based on the message content."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        400,
+        300
+      ],
+      "name": "Interpret Message",
+      "id": "interpretMessage",
+      "credentials": {}
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ],
+      "name": "Extract Tool Choice",
+      "id": "extractToolChoice",
+      "parameters": {
+        "functionCode": "const text = $json[\"text\"] || \"\";\nconst interpretation = $json[\"text\"] || $json[\"data\"] || $json[\"interpretMessage\"]?.text || $json[\"output\"] || $json[\"outputText\"] || \"\";\n// We take the latest response from the AI agent\n// Because AI Agent may output text field or other structure, normalize\nconst lower = interpretation.toLowerCase();\nlet tool = \"\";\nif(lower.includes(\"calendar\")) {\n  tool = \"calendar\";\n} else if(lower.includes(\"gmail\")) {\n  tool = \"gmail\";\n}\nreturn [{ json: { toolChoice: tool, interpretation: interpretation, originalMessage: text } }];"
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "name": "Check Tool Choice",
+      "id": "checkToolChoice",
+      "conditions": {
+        "string": [
+          {
+            "value1": "={{$json[\"toolChoice\"]}}",
+            "operation": "equal",
+            "value2": "calendar"
+          }
+        ]
+      }
+    },
+    {
+      "parameters": {
+        "operation": "createEvent",
+        "calendarId": "primary",
+        "summary": "={{$json[\"originalMessage\"]}}",
+        "start": "={{ new Date().toISOString() }}",
+        "end": "={{ new Date(Date.now() + 30*60000).toISOString() }}",
+        "description": "Created from Slack message: {{$json[\"originalMessage\"]}}"
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        1150,
+        190
+      ],
+      "name": "Google Calendar",
+      "id": "googleCalendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "google-calendar-cred",
+          "name": "Google Calendar OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "toEmail": "",
+        "message": "={{$json[\"originalMessage\"]}}",
+        "subject": "Slack message sent via AI agent",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.googleGmail",
+      "typeVersion": 1,
+      "position": [
+        1150,
+        410
+      ],
+      "name": "Send Gmail",
+      "id": "sendGmail",
+      "credentials": {
+        "googleGmailOAuth2Api": {
+          "id": "google-gmail-cred",
+          "name": "Google Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "default",
+        "spreadsheetId": "<YOUR_GOOGLE_SHEET_ID>",
+        "range": "Sheet1!A:D",
+        "valueInputMode": "USER_ENTERED",
+        "options": {},
+        "data": "={{[[ (new Date()).toISOString(), $json[\"originalMessage\"], $json[\"toolChoice\"], JSON.stringify($json) ]]}}"
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        300
+      ],
+      "name": "Log to Google Sheet",
+      "id": "logGoogleSheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-cred",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{$json[\"channel\"]}}",
+        "text": "={{ 'Received your message and performed: ' + $json[\"toolChoice\"] + ' action.' }}"
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        300
+      ],
+      "name": "Send Slack Response",
+      "id": "sendSlackResponse",
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credentials",
+          "name": "Slack API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Slack Trigger": {
+      "main": [
+        [
+          {
+            "node": "Interpret Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpret Message": {
+      "main": [
+        [
+          {
+            "node": "Extract Tool Choice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Tool Choice": {
+      "main": [
+        [
+          {
+            "node": "Check Tool Choice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Tool Choice": {
+      "main": [
+        [
+          {
+            "node": "Google Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Log to Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Gmail": {
+      "main": [
+        [
+          {
+            "node": "Log to Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true,
+    "saveDataErrorExecution": "all",
+    "errorWorkflow": "",
+    "timezone": "UTC"
+  },
+  "staticData": null
+}

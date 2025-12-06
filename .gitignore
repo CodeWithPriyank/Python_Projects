@@ -1,0 +1,10 @@
+node_modules/
+logs/
+.env
+_build/
+__pycache__/
+.venv/
+logs/
+LICENSE
+.DS_Store
+*.log
